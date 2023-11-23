@@ -11,12 +11,13 @@ config['wifi_pw'] = WIFI_PASS
 # config['connect_coro'] = conn_han
 # config['wifi_coro'] = wifi_han
 config['ssl'] = True
-config['user'] = USR_PASS
+config['user'] = MQTT_USR
 config['password'] = MQTT_USR_PASS
 
 # Set up client
 MQTTClient.DEBUG = False  # Optional
 client = MQTTClient(config)
+
 class AsyncPin:
     contador = 0
     tstart = ticks_us()
@@ -43,16 +44,27 @@ async def foo():
     while True:
         await async_pin.wait_edge()
 
-async def main():
+async def main(client):
+    await client.connect()
+    n = 0
+    await asyncio.sleep(2)  # Give broker time
     asyncio.create_task(foo())
     while True:
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(2)
         if async_pin.contador > 1:
-            promedio = 1000000*(async_pin.contador)/async_pin.delta
+            velocidad = round(1000000*(async_pin.contador)/async_pin.delta,1)
         else:
-            promedio = None
-        print(promedio)
+            velocidad = None
+        print(velocidad)
+        datos=json.dumps(
+                    ('velocidad',velocidad)
+                )
+        await client.publish("meteorologica/", datos, qos = 1)
         async_pin.delta = 0
         async_pin.contador = 0
 
-asyncio.run(main())
+try:
+    asyncio.run(main(client))
+finally:
+    client.close()
+    asyncio.new_event_loop()
