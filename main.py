@@ -40,28 +40,32 @@ class AsyncPin:
 pin_in = Pin(22, Pin.IN, Pin.PULL_DOWN)
 async_pin = AsyncPin(pin_in, Pin.IRQ_RISING)
 
-async def foo():
+async def waiting():
     while True:
         await async_pin.wait_edge()
+
+asyncio.create_task(waiting())
 
 async def main(client):
     await client.connect()
     n = 0
+    velocidad = 0
     await asyncio.sleep(2)  # Give broker time
-    asyncio.create_task(foo())
     while True:
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
         if async_pin.contador > 1:
             velocidad = round(1000000*(async_pin.contador)/async_pin.delta,1)
-        else:
-            velocidad = None
+            async_pin.delta = 0
+            async_pin.contador = 0
+        elif async_pin.delta > 6000000:
+            velocidad = 0
+            async_pin.delta = 0
+            async_pin.contador = 0
         print(velocidad)
         datos=json.dumps(
                     ('velocidad',velocidad)
                 )
         await client.publish("meteorologica/", datos, qos = 1)
-        async_pin.delta = 0
-        async_pin.contador = 0
 
 try:
     asyncio.run(main(client))
